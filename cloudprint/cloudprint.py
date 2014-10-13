@@ -388,7 +388,8 @@ def process_job(cups_connection, cpp, printer, job):
 
         cpp.finish_job(job['id'])
 
-        cups_connection.printFile(printer.name, tmp.name, job['title'], options)
+        # Cap the title length to 255, or cups will complain about invalid job-name
+        cups_connection.printFile(printer.name, tmp.name, job['title'][:255], options)
         os.unlink(tmp.name)
         LOGGER.info('SUCCESS ' + job['title'].encode('unicode-escape'))
 
