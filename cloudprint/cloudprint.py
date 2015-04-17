@@ -58,6 +58,10 @@ FAIL_RETRY=60
 # how often, in seconds, to send a keepalive character over xmpp
 KEEPALIVE=600.0
 
+# failed job retries
+RETRIES = 1
+num_retries = 0
+
 LOGGER = logging.getLogger('cloudprint')
 LOGGER.setLevel(logging.INFO)
 
@@ -367,6 +371,8 @@ def sync_printers(cups_connection, cpp):
         remote_printers[printer_name].delete()
 
 def process_job(cups_connection, cpp, printer, job):
+    global num_retries
+
     request = urllib2.Request(job['fileUrl'], headers={
         'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM',
         'Authorization' : 'GoogleLogin auth=%s' % cpp.get_auth()
@@ -393,9 +399,16 @@ def process_job(cups_connection, cpp, printer, job):
 
         cpp.finish_job(job['id'])
 
+        num_retries = 0
+
     except:
-        cpp.fail_job(job['id'])
-        LOGGER.error('ERROR ' + job['title'].encode('unicode-escape'))
+        if num_retries >= RETRIES:
+            num_retries = 0
+            cpp.fail_job(job['id'])
+            LOGGER.error('ERROR ' + job['title'].encode('unicode-escape'))
+        else:
+            num_retries += 1
+            LOGGER.info('Job %s failed - Will retry' % job['title'].encode('unicode-escape'))
 
 def process_jobs(cups_connection, cpp, printers):
     xmpp_auth = file(cpp.xmpp_auth_path).read()
